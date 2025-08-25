@@ -3,9 +3,11 @@ A test displaying a triangle in accordance to input.
 Made with React and Vite.
 
 To run:
+```
 cd react-app
 npm install
 npm run dev
+```
 
 <u>Answers to the questions</u>:
 
