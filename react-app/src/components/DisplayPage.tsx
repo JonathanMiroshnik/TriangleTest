@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 
 // Interface to define the structure of a point
 interface Point {
@@ -26,8 +26,22 @@ const DisplayPage = () => {
   // Hook for navigation back to input page
   const navigate = useNavigate();
   
-  // Reference to the canvas element for drawing
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  // State to store transformed points and calculated angles
+  const [svgData, setSvgData] = useState<{
+    p1: Point;
+    p2: Point;
+    p3: Point;
+    angle1: number;
+    angle2: number;
+    angle3: number;
+  }>({
+    p1: { x: 0, y: 0 },
+    p2: { x: 0, y: 0 },
+    p3: { x: 0, y: 0 },
+    angle1: 0,
+    angle2: 0,
+    angle3: 0
+  });
 
   // Function to calculate the angle between three points using the law of cosines
   const calculateAngle = (p1: Point, p2: Point, p3: Point): number => {
@@ -44,21 +58,53 @@ const DisplayPage = () => {
     return (angleRad * 180) / Math.PI;
   };
 
-  // Function to draw the triangle and angles on the canvas
-  const drawTriangle = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  // Function to calculate SVG path for angle arcs
+  const createArcPath = (center: Point, startAngle: number, endAngle: number, radius: number, clockwise: boolean = true): string => {
+    // Convert angles to radians
+    const startRad = startAngle * Math.PI / 180;
+    const endRad = endAngle * Math.PI / 180;
+    
+    // Calculate start and end points of the arc
+    const startX = center.x + radius * Math.cos(startRad);
+    const startY = center.y + radius * Math.sin(startRad);
+    const endX = center.x + radius * Math.cos(endRad);
+    const endY = center.y + radius * Math.sin(endRad);
+    
+    // Determine if the arc should be drawn clockwise or counterclockwise
+    const largeArcFlag = Math.abs(endRad - startRad) > Math.PI ? 1 : 0;
+    
+    // Create SVG arc path - use clockwise parameter to determine sweep flag
+    const sweepFlag = clockwise ? 1 : 0;
+    return `M ${startX} ${startY} A ${radius} ${radius} 0 ${largeArcFlag} ${sweepFlag} ${endX} ${endY}`;
+  };
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  // Function to calculate the correct starting angle for drawing an arc
+  const calculateArcStartAngle = (center: Point, p1: Point): number => {
+    // Calculate the angle from center to the first point
+    return Math.atan2(p1.y - center.y, p1.x - center.x) * 180 / Math.PI;
+  };
 
-    // Clear the canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // Function to calculate the correct ending angle for drawing an arc
+  const calculateArcEndAngle = (center: Point, p1: Point, angle: number): number => {
+    // Start from the first point and rotate by the calculated angle
+    const startAngle = Math.atan2(p1.y - center.y, p1.x - center.x) * 180 / Math.PI;
+    return startAngle + angle;
+  };
 
-    // Set canvas size to 800x800 as specified
-    canvas.width = 800;
-    canvas.height = 800;
+  // Function to determine if we should draw the arc clockwise or counterclockwise
+  const shouldDrawClockwise = (p1: Point, p2: Point, p3: Point): boolean => {
+    // Calculate the cross product to determine the orientation
+    // If positive, the triangle is counterclockwise; if negative, it's clockwise
+    const crossProduct = (p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x);
+    
+    // For a triangle, we want the arc to be drawn towards the inside
+    // If the triangle is counterclockwise, we draw clockwise (towards inside)
+    // If the triangle is clockwise, we draw counterclockwise (towards inside)
+    return crossProduct > 0;
+  };
 
+  // Function to transform triangle data and calculate angles
+  const calculateSvgData = () => {
     // Calculate the bounding box of the triangle to center it
     const minX = Math.min(triangleData.point1.x, triangleData.point2.x, triangleData.point3.x);
     const maxX = Math.max(triangleData.point1.x, triangleData.point2.x, triangleData.point3.x);
@@ -70,7 +116,7 @@ const DisplayPage = () => {
     const offsetX = (800 - (maxX - minX) * scale) / 2 - minX * scale;
     const offsetY = (800 - (maxY - minY) * scale) / 2 - minY * scale;
 
-    // Transform points to fit in canvas
+    // Transform points to fit in SVG
     const transformPoint = (p: Point) => ({
       x: p.x * scale + offsetX,
       y: p.y * scale + offsetY
@@ -80,72 +126,120 @@ const DisplayPage = () => {
     const p2 = transformPoint(triangleData.point2);
     const p3 = transformPoint(triangleData.point3);
 
-    // Draw the triangle
-    ctx.beginPath();
-    ctx.moveTo(p1.x, p1.y);
-    ctx.lineTo(p2.x, p2.y);
-    ctx.lineTo(p3.x, p3.y);
-    ctx.closePath();
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
     // Calculate angles
     const angle1 = calculateAngle(triangleData.point1, triangleData.point2, triangleData.point3);
     const angle2 = calculateAngle(triangleData.point2, triangleData.point3, triangleData.point1);
     const angle3 = calculateAngle(triangleData.point3, triangleData.point1, triangleData.point2);
 
-    // Draw angle arcs
-    const drawAngleArc = (center: Point, startAngle: number, endAngle: number, radius: number) => {
-      ctx.beginPath();
-      ctx.arc(center.x, center.y, radius, startAngle, endAngle);
-      ctx.strokeStyle = '#e74c3c';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    };
-
-    // Calculate angles for drawing arcs (convert to radians)
-    const angle1Rad = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-    const angle2Rad = Math.atan2(p3.y - p2.y, p3.x - p2.x);
-    const angle3Rad = Math.atan2(p1.y - p3.y, p1.x - p3.x);
-
-    // Draw angle arcs (small radius)
-    const arcRadius = 30;
-    drawAngleArc(p1, angle1Rad, angle1Rad + (angle1 * Math.PI) / 180, arcRadius);
-    drawAngleArc(p2, angle2Rad, angle2Rad + (angle2 * Math.PI) / 180, arcRadius);
-    drawAngleArc(p3, angle3Rad, angle3Rad + (angle3 * Math.PI) / 180, arcRadius);
-
-    // Display angle values
-    ctx.fillStyle = '#2c3e50';
-    ctx.font = '16px Arial';
-    ctx.textAlign = 'center';
-    
-    // Position text near each vertex
-    ctx.fillText(`${angle1.toFixed(1)}°`, p1.x, p1.y - 20);
-    ctx.fillText(`${angle2.toFixed(1)}°`, p2.x, p2.y - 20);
-    ctx.fillText(`${angle3.toFixed(1)}°`, p3.x, p3.y - 20);
-
-    // Display total angle (should be 180°)
-    ctx.fillText(`Total: ${(angle1 + angle2 + angle3).toFixed(1)}°`, 400, 750);
+    setSvgData({ p1, p2, p3, angle1, angle2, angle3 });
   };
 
-  // Draw triangle when component mounts or triangle data changes
+  // Calculate SVG data when component mounts or triangle data changes
   useEffect(() => {
-    drawTriangle();
+    calculateSvgData();
   }, [triangleData]);
+
+  // SVG dimensions
+  const svgWidth = 800;
+  const svgHeight = 800;
 
   return (
     <div className="display-page">
       <h1>Triangle Display</h1>
       <p>Triangle drawn based on your input coordinates</p>
       
-      {/* Canvas for drawing the triangle */}
+      {/* SVG container for drawing the triangle */}
       <div className="canvas-container">
-        <canvas 
-          ref={canvasRef} 
-          className="triangle-canvas"
-          style={{ border: '2px solid #ccc' }}
-        />
+        <svg 
+          width={svgWidth} 
+          height={svgHeight} 
+          className="triangle-svg"
+          style={{ border: '2px solid #ccc', borderRadius: '10px' }}
+        >
+          {/* Triangle outline */}
+          <polygon
+            points={`${svgData.p1.x},${svgData.p1.y} ${svgData.p2.x},${svgData.p2.y} ${svgData.p3.x},${svgData.p3.y}`}
+            fill="none"
+            stroke="#333"
+            strokeWidth="3"
+          />
+
+          {/* Angle arc for Point 1 */}
+          <path
+            d={createArcPath(
+              svgData.p1,
+              calculateArcStartAngle(svgData.p1, svgData.p2),
+              calculateArcEndAngle(svgData.p1, svgData.p2, svgData.angle1),
+              30,
+              shouldDrawClockwise(svgData.p1, svgData.p2, svgData.p3)
+            )}
+            fill="none"
+            stroke="#e74c3c"
+            strokeWidth="2"
+          />
+
+          {/* Angle arc for Point 2 */}
+          <path
+            d={createArcPath(
+              svgData.p2,
+              calculateArcStartAngle(svgData.p2, svgData.p3),
+              calculateArcEndAngle(svgData.p2, svgData.p3, svgData.angle2),
+              30,
+              shouldDrawClockwise(svgData.p2, svgData.p3, svgData.p1)
+            )}
+            fill="none"
+            stroke="#e74c3c"
+            strokeWidth="2"
+          />
+
+          {/* Angle arc for Point 3 */}
+          <path
+            d={createArcPath(
+              svgData.p3,
+              calculateArcStartAngle(svgData.p3, svgData.p1),
+              calculateArcEndAngle(svgData.p3, svgData.p1, svgData.angle3),
+              30,
+              shouldDrawClockwise(svgData.p3, svgData.p1, svgData.p2)
+            )}
+            fill="none"
+            stroke="#e74c3c"
+            strokeWidth="2"
+          />
+
+          {/* Angle value labels */}
+          <text
+            x={svgData.p1.x}
+            y={svgData.p1.y - 20}
+            textAnchor="middle"
+            fill="#2c3e50"
+            fontSize="16"
+            fontFamily="Arial"
+          >
+            {svgData.angle1.toFixed(1)}°
+          </text>
+
+          <text
+            x={svgData.p2.x}
+            y={svgData.p2.y - 20}
+            textAnchor="middle"
+            fill="#2c3e50"
+            fontSize="16"
+            fontFamily="Arial"
+          >
+            {svgData.angle2.toFixed(1)}°
+          </text>
+
+          <text
+            x={svgData.p3.x}
+            y={svgData.p3.y - 20}
+            textAnchor="middle"
+            fill="#2c3e50"
+            fontSize="16"
+            fontFamily="Arial"
+          >
+            {svgData.angle3.toFixed(1)}°
+          </text>
+        </svg>
       </div>
 
       {/* Button to go back to input page */}

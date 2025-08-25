@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import InputPage from './components/InputPage';
-import DisplayPage from './components/DisplayPage';
+import InputPage from './components/InputPage.tsx';
+import DisplayPage from './components/DisplayPage.tsx';
 import './App.css';
 
 function App() {

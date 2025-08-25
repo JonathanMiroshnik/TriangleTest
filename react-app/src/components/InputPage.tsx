@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PointInput } from './PointInput';
 
 // Interface to define the structure of a point
-interface Point {
+export interface Point {
   x: number;
   y: number;
 }
 
 // Interface to define the structure of triangle data
-interface TriangleData {
+export interface TriangleData {
   point1: Point;
   point2: Point;
   point3: Point;
@@ -50,74 +51,24 @@ const InputPage = () => {
       <p>Enter the coordinates for three points to create a triangle</p>
       
       <form onSubmit={handleSubmit}>
-        {/* Input fields for Point 1 */}
-        <div className="point-input">
-          <h3>Point 1</h3>
-          <div className="coordinate-inputs">
-            <label>
-              X: <input
-                type="number"
-                value={triangleData.point1.x}
-                onChange={(e) => handlePointChange('point1', 'x', e.target.value)}
-                step="any"
-              />
-            </label>
-            <label>
-              Y: <input
-                type="number"
-                value={triangleData.point1.y}
-                onChange={(e) => handlePointChange('point1', 'y', e.target.value)}
-                step="any"
-              />
-            </label>
-          </div>
-        </div>
-
-        {/* Input fields for Point 2 */}
-        <div className="point-input">
-          <h3>Point 2</h3>
-          <div className="coordinate-inputs">
-            <label>
-              X: <input
-                type="number"
-                value={triangleData.point2.x}
-                onChange={(e) => handlePointChange('point2', 'x', e.target.value)}
-                step="any"
-              />
-            </label>
-            <label>
-              Y: <input
-                type="number"
-                value={triangleData.point2.y}
-                onChange={(e) => handlePointChange('point2', 'y', e.target.value)}
-                step="any"
-              />
-            </label>
-          </div>
-        </div>
-
-        {/* Input fields for Point 3 */}
-        <div className="point-input">
-          <h3>Point 3</h3>
-          <div className="coordinate-inputs">
-            <label>
-              X: <input
-                type="number"
-                value={triangleData.point3.x}
-                onChange={(e) => handlePointChange('point3', 'x', e.target.value)}
-                step="any"
-              />
-            </label>
-            <label>
-              Y: <input
-                type="number"
-                value={triangleData.point3.y}
-                onChange={(e) => handlePointChange('point3', 'y', e.target.value)}
-                step="any"
-              />
-            </label>
-          </div>
-        </div>
+        {/* Use the reusable PointInput component for all three points */}
+        <PointInput
+          pointIndex="point1"
+          pointData={triangleData.point1}
+          onPointChange={handlePointChange}
+        />
+        
+        <PointInput
+          pointIndex="point2"
+          pointData={triangleData.point2}
+          onPointChange={handlePointChange}
+        />
+        
+        <PointInput
+          pointIndex="point3"
+          pointData={triangleData.point3}
+          onPointChange={handlePointChange}
+        />
 
         {/* Button to show the triangle */}
         <button type="submit" className="show-triangle-btn">

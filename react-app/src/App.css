@@ -121,16 +121,46 @@
   font-size: 1.1em;
 }
 
-/* Canvas container styles */
+/* Canvas/SVG container styles */
 .canvas-container {
   display: flex;
   justify-content: center;
   margin: 30px 0;
 }
 
-.triangle-canvas {
+.triangle-canvas, .triangle-svg {
   border-radius: 10px;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* SVG specific styles */
+.triangle-svg {
+  background-color: white;
+}
+
+.triangle-svg polygon {
+  transition: stroke-width 0.3s ease;
+}
+
+.triangle-svg polygon:hover {
+  stroke-width: 4;
+}
+
+.triangle-svg path {
+  transition: stroke-width 0.3s ease;
+}
+
+.triangle-svg path:hover {
+  stroke-width: 3;
+}
+
+.triangle-svg text {
+  transition: font-size 0.3s ease;
+}
+
+.triangle-svg text:hover {
+  font-size: 18;
+  font-weight: bold;
 }
 
 /* Responsive design */
@@ -149,7 +179,7 @@
     width: 120px;
   }
   
-  .triangle-canvas {
+  .triangle-canvas, .triangle-svg {
     max-width: 100%;
     height: auto;
   }
