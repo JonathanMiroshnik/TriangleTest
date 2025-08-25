@@ -30,6 +30,7 @@ that if one knows the 3 points of a triangle and the point of the desired angle,
 And so I created a function for that specific calculation, for the accurate display of the angles.
 
 4. I did not deal with the transfer of the input from one page to another. I would've preferred to give the Display page the Triangle points data in a more React friendly way, like as an input to the DisplayPage function instead of using useLocation.
+I did not generalize the angles and the angle text associated with each to a separate component, which would've been more appropriate for these repeating patterns.
 
 5. The tools I used were: Vite, Deepseek, Cursor
 I used Vite to create a ready-made React and Typescript set-up.
