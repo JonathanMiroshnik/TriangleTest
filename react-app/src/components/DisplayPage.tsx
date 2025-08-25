@@ -15,6 +15,10 @@ interface TriangleData {
 }
 
 const DisplayPage = () => {
+  // SVG dimensions
+  const svgWidth = 800;
+  const svgHeight = 800;
+
   // Get triangle data from navigation state
   const location = useLocation();
   const triangleData: TriangleData = location.state?.triangleData || {
@@ -58,51 +62,6 @@ const DisplayPage = () => {
     return (angleRad * 180) / Math.PI;
   };
 
-  // Function to calculate SVG path for angle arcs
-  const createArcPath = (center: Point, startAngle: number, endAngle: number, radius: number, clockwise: boolean = true): string => {
-    // Convert angles to radians
-    const startRad = startAngle * Math.PI / 180;
-    const endRad = endAngle * Math.PI / 180;
-    
-    // Calculate start and end points of the arc
-    const startX = center.x + radius * Math.cos(startRad);
-    const startY = center.y + radius * Math.sin(startRad);
-    const endX = center.x + radius * Math.cos(endRad);
-    const endY = center.y + radius * Math.sin(endRad);
-    
-    // Determine if the arc should be drawn clockwise or counterclockwise
-    const largeArcFlag = Math.abs(endRad - startRad) > Math.PI ? 1 : 0;
-    
-    // Create SVG arc path - use clockwise parameter to determine sweep flag
-    const sweepFlag = clockwise ? 1 : 0;
-    return `M ${startX} ${startY} A ${radius} ${radius} 0 ${largeArcFlag} ${sweepFlag} ${endX} ${endY}`;
-  };
-
-  // Function to calculate the correct starting angle for drawing an arc
-  const calculateArcStartAngle = (center: Point, p1: Point): number => {
-    // Calculate the angle from center to the first point
-    return Math.atan2(p1.y - center.y, p1.x - center.x) * 180 / Math.PI;
-  };
-
-  // Function to calculate the correct ending angle for drawing an arc
-  const calculateArcEndAngle = (center: Point, p1: Point, angle: number): number => {
-    // Start from the first point and rotate by the calculated angle
-    const startAngle = Math.atan2(p1.y - center.y, p1.x - center.x) * 180 / Math.PI;
-    return startAngle + angle;
-  };
-
-  // Function to determine if we should draw the arc clockwise or counterclockwise
-  const shouldDrawClockwise = (p1: Point, p2: Point, p3: Point): boolean => {
-    // Calculate the cross product to determine the orientation
-    // If positive, the triangle is counterclockwise; if negative, it's clockwise
-    const crossProduct = (p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x);
-    
-    // For a triangle, we want the arc to be drawn towards the inside
-    // If the triangle is counterclockwise, we draw clockwise (towards inside)
-    // If the triangle is clockwise, we draw counterclockwise (towards inside)
-    return crossProduct > 0;
-  };
-
   // Function to transform triangle data and calculate angles
   const calculateSvgData = () => {
     // Calculate the bounding box of the triangle to center it
@@ -111,10 +70,10 @@ const DisplayPage = () => {
     const minY = Math.min(triangleData.point1.y, triangleData.point2.y, triangleData.point3.y);
     const maxY = Math.max(triangleData.point1.y, triangleData.point2.y, triangleData.point3.y);
 
-    // Calculate scale and offset to fit triangle in 800x800 area
+    // Calculate scale and offset to fit triangle in svgWidth x svgHeight area
     const scale = Math.min(700 / (maxX - minX), 700 / (maxY - minY));
-    const offsetX = (800 - (maxX - minX) * scale) / 2 - minX * scale;
-    const offsetY = (800 - (maxY - minY) * scale) / 2 - minY * scale;
+    const offsetX = (svgWidth - (maxX - minX) * scale) / 2 - minX * scale;
+    const offsetY = (svgHeight - (maxY - minY) * scale) / 2 - minY * scale;
 
     // Transform points to fit in SVG
     const transformPoint = (p: Point) => ({
@@ -134,14 +93,75 @@ const DisplayPage = () => {
     setSvgData({ p1, p2, p3, angle1, angle2, angle3 });
   };
 
+  /**
+   * Calculates the SVG path data for an angle arc at a given vertex of a triangle.
+   * @param a The first point of the triangle.
+   * @param b The second point of the triangle (this will be the vertex where the angle is drawn).
+   * @param c The third point of the triangle.
+   * @param radius The radius of the angle arc. Defaults to 15.
+   * @returns The `d` attribute string for an SVG <path> element representing the angle arc.
+   */
+  function getAngleArcPath(
+    a: Point,
+    b: Point, // This is the vertex point
+    c: Point,
+    radius: number = 50
+  ): string {
+
+    // 1. Create vectors from the vertex (point b) to the other two points
+    const vector1 = { x: a.x - b.x, y: a.y - b.y };
+    const vector2 = { x: c.x - b.x, y: c.y - b.y };
+
+    // 2. Calculate the angles of these vectors using Math.atan2
+    const angle1 = Math.atan2(vector1.y, vector1.x);
+    const angle2 = Math.atan2(vector2.y, vector2.x);
+
+    // 3. Determine the sweep flag (1 for large arc, 0 for small)
+    // We usually want the small arc. This logic checks which angle is larger
+    // and sets the flags to sweep between them correctly.
+    let startAngle = angle1;
+    let endAngle = angle2;
+
+    // Ensure we take the shorter arc around the circle
+    if (Math.abs(angle2 - angle1) > Math.PI) {
+      if (angle2 > angle1) {
+        startAngle += 2 * Math.PI;
+      } else {
+        endAngle += 2 * Math.PI;
+      }
+    }
+
+    // 4. Build the SVG path string
+    // M = Move to the start point of the arc (vertex + polar coordinates using the first angle)
+    // A = Elliptical Arc command: 
+    //   radiusX, radiusY, 
+    //   x-axis-rotation (0 for a circle), 
+    //   large-arc-flag (0 for our small arc), 
+    //   sweep-flag (1 to sweep positively/clockwise, needs calculation),
+    //   endX, endY
+    // The sweep flag is 1 if the arc is being drawn clockwise from start to end, else 0.
+    // We calculate it by checking if the end angle is greater than the start angle after our adjustment.
+    const sweepFlag = endAngle > startAngle ? 1 : 0;
+
+    const startX = b.x + radius * Math.cos(startAngle);
+    const startY = b.y + radius * Math.sin(startAngle);
+
+    const endX = b.x + radius * Math.cos(endAngle);
+    const endY = b.y + radius * Math.sin(endAngle);
+
+    // Construct the 'd' attribute
+    const d = [
+      `M ${startX} ${startY}`, // Move to the start of the arc
+      `A ${radius} ${radius} 0 0 ${sweepFlag} ${endX} ${endY}` // Draw the arc to the end point
+    ].join(' ');
+
+    return d;
+  }
+
   // Calculate SVG data when component mounts or triangle data changes
   useEffect(() => {
     calculateSvgData();
   }, [triangleData]);
-
-  // SVG dimensions
-  const svgWidth = 800;
-  const svgHeight = 800;
 
   return (
     <div className="display-page">
@@ -164,43 +184,25 @@ const DisplayPage = () => {
             strokeWidth="3"
           />
 
-          {/* Angle arc for Point 1 */}
+          {/* Angle arc for Point 1 (angle between edge p1->p2 and edge p1->p3) */}
           <path
-            d={createArcPath(
-              svgData.p1,
-              calculateArcStartAngle(svgData.p1, svgData.p2),
-              calculateArcEndAngle(svgData.p1, svgData.p2, svgData.angle1),
-              30,
-              shouldDrawClockwise(svgData.p1, svgData.p2, svgData.p3)
-            )}
+            d={getAngleArcPath(svgData.p1, svgData.p2, svgData.p3)}
             fill="none"
             stroke="#e74c3c"
             strokeWidth="2"
           />
 
-          {/* Angle arc for Point 2 */}
+          {/* Angle arc for Point 2 (angle between edge p2->p3 and edge p2->p1) */}
           <path
-            d={createArcPath(
-              svgData.p2,
-              calculateArcStartAngle(svgData.p2, svgData.p3),
-              calculateArcEndAngle(svgData.p2, svgData.p3, svgData.angle2),
-              30,
-              shouldDrawClockwise(svgData.p2, svgData.p3, svgData.p1)
-            )}
+            d={getAngleArcPath(svgData.p2, svgData.p3, svgData.p1)}
             fill="none"
             stroke="#e74c3c"
             strokeWidth="2"
           />
 
-          {/* Angle arc for Point 3 */}
+          {/* Angle arc for Point 3 (angle between edge p3->p1 and edge p3->p2) */}
           <path
-            d={createArcPath(
-              svgData.p3,
-              calculateArcStartAngle(svgData.p3, svgData.p1),
-              calculateArcEndAngle(svgData.p3, svgData.p1, svgData.angle3),
-              30,
-              shouldDrawClockwise(svgData.p3, svgData.p1, svgData.p2)
-            )}
+            d={getAngleArcPath(svgData.p3, svgData.p1, svgData.p2)}
             fill="none"
             stroke="#e74c3c"
             strokeWidth="2"
